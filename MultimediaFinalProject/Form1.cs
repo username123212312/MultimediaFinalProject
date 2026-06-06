@@ -1,13 +1,17 @@
+using Microsoft.VisualBasic.Devices;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
 using System.Windows.Forms;
 using TagLib;
+using NAudio.Wave;
 
 namespace MultimediaFinalProject
 {
     public partial class Form1 : Form
     {
+        private float[] audioSamples;
         public Form1()
         {
             InitializeComponent();
@@ -54,21 +58,26 @@ namespace MultimediaFinalProject
         {
             if (string.IsNullOrWhiteSpace(filePath) || !System.IO.File.Exists(filePath))
             {
-                MessageBox.Show("File not found: " + filePath, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("File not found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             try
             {
-                var psi = new ProcessStartInfo(filePath)
+                using (var reader = new NAudio.Wave.AudioFileReader(filePath))
                 {
-                    UseShellExecute = true
-                };
+                    audioSamples = new float[reader.Length / 4]; // ﬂ· ⁄Ì‰… 4 »«Ì 
+                    reader.Read(audioSamples, 0, audioSamples.Length);
+                }
+
+                btnCompress.Enabled = true;
+
+                var psi = new ProcessStartInfo(filePath) { UseShellExecute = true };
                 Process.Start(psi);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Unable to start playback: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Error loading audio: " + ex.Message);
             }
 
             DisplayAudioInfo(filePath);
@@ -99,5 +108,41 @@ namespace MultimediaFinalProject
                 txtInfo.Text = "Error reading metadata:" + Environment.NewLine + ex.Message;
             }
         }
+        private void btnCompress_Click(object sender, EventArgs e)
+        {
+            if (audioSamples == null) return;
+
+            AudioCompressor compressor = new AudioCompressor();
+            string selectedAlgo = cmbAlgorithm.SelectedItem.ToString();
+
+            float[] compressedData = null; 
+
+            switch (selectedAlgo)
+            {
+                case "Nonlinear Quantization":
+                    compressedData = compressor.ApplyNonlinearQuantization(audioSamples, (int)nudQuant.Value);
+                    break;
+                case "DPCM":
+                    compressedData = compressor.ApplyDPCM(audioSamples);
+                    break;
+                case "Predictive Differential Coding":
+                    compressedData = compressor.ApplyPredictiveCoding(audioSamples);
+                    break;
+            }
+
+            if (compressedData != null)
+            {
+                SaveCompressedFile(compressedData, "CompressedAudio.wav");
+                MessageBox.Show(" „ Õ›Ÿ «·„·› »«”„ CompressedAudio.wav");
+            }
+        }
+        private void SaveCompressedFile(float[] data, string fileName)
+        {
+            using (var writer = new NAudio.Wave.WaveFileWriter(fileName, new NAudio.Wave.WaveFormat(44100, 1)))
+            {
+                writer.WriteSamples(data, 0, data.Length);
+            }
+        }
     }
-}
+
+    }

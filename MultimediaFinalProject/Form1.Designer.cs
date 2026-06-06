@@ -57,6 +57,43 @@ namespace MultimediaFinalProject
             txtInfo.ScrollBars = ScrollBars.Vertical;
             txtInfo.Size = new Size(188, 313);
             txtInfo.TabIndex = 2;
+
+
+            Label lblAlgo = new Label() { Text = "Algorithm:", Location = new Point(12, 60), AutoSize = true };
+            cmbAlgorithm = new ComboBox();
+            cmbAlgorithm.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbAlgorithm.Items.AddRange(new object[] {
+                   "Nonlinear Quantization",
+                   "DPCM",
+                   "Predictive Differential Coding",
+                   "Delta Modulation",
+                    "Adaptive Delta Modulation"
+             });
+
+            cmbAlgorithm.Location = new Point(150, 58);
+            cmbAlgorithm.Size = new Size(200, 23); 
+
+            Label lblRate = new Label() { Text = "Sample Rate (Hz):", Location = new Point(12, 95), AutoSize = true };
+            NumericUpDown nudSampleRate = new NumericUpDown() { Location = new Point(150, 93), Size = new Size(200, 23), Maximum = 96000, Value = 44100 };
+
+            Label lblQuant = new Label() { Text = "Quantization Levels:", Location = new Point(12, 130), AutoSize = true };
+            nudQuant = new NumericUpDown() { Location = new Point(150, 128), Size = new Size(200, 23), Value = 8 };
+
+            btnCompress = new Button()
+            {
+                Text = "Start Compression",
+                Location = new Point(150, 165),
+                Size = new Size(150, 30),
+                Enabled = false 
+            };
+            btnCompress.Click += btnCompress_Click;
+
+            Controls.Add(lblAlgo); Controls.Add(cmbAlgorithm);
+            Controls.Add(lblRate); Controls.Add(nudSampleRate);
+            Controls.Add(lblQuant); Controls.Add(nudQuant);
+            Controls.Add(btnCompress);
+
+
             // 
             // Form1
             // 
@@ -68,6 +105,7 @@ namespace MultimediaFinalProject
             Controls.Add(button1);
             Name = "Form1";
             Text = "Form1";
+          
             ResumeLayout(false);
             PerformLayout();
         }
@@ -76,5 +114,8 @@ namespace MultimediaFinalProject
 
         private Button button1;
         private TextBox txtInfo;
+        private ComboBox cmbAlgorithm;
+        private NumericUpDown nudQuant;
+        private Button btnCompress;
     }
 }
