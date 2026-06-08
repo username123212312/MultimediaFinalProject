@@ -255,6 +255,7 @@ namespace MultimediaFinalProject
 
             string algo = cmbAlgorithm.SelectedItem.ToString() ?? string.Empty;
             int quantLevels = (int)nudQuant.Value;
+            int lastProcessed = 0;
 
             // Setup data for live graphs
             var timePoints = new List<double>();
@@ -291,25 +292,29 @@ namespace MultimediaFinalProject
                             compRates.Add(compressionPercent);
 
                             // instantaneous processing speed (samples/sec) for last block
-                            double blockSeconds = Math.Max(1e-3, elapsedMs / 1000.0); // elapsedMs is block time in ms now
-                            double speed = processed / blockSeconds; // samples/sec relative to processed (approx)
-                            // Better: show last-block speed instead of cumulative, but to keep simple we use processed/blockSeconds
+                            int blockSamples = processed - lastProcessed;
+                            double blockSeconds = Math.Max(1e-3, elapsedMs / 1000.0); // elapsedMs is block time in ms
+                            double speed = blockSamples / blockSeconds;
                             speedPoints.Add(speed);
 
-                            // Append to plots instead of clearing entirely
+                            // remember for next update
+                            lastProcessed = processed;
+
+                            // update compression plot
                             formsPlotCompression.Plot.Clear();
                             var cpX = DataToArray(timePoints);
                             var cpY = DataToArray(compRates);
                             var cpScatter = formsPlotCompression.Plot.Add.Scatter(cpX, cpY);
                             cpScatter.MarkerSize = 0;
                             cpScatter.LineWidth = 2;
-
                             formsPlotCompression.Plot.Title("Compression % (higher = more reduction)");
                             formsPlotCompression.Plot.XLabel("Time (s)");
                             formsPlotCompression.Plot.YLabel("% reduction");
-
+                            // immediately autoscale axes so new points are visible
+                            formsPlotCompression.Plot.Axes.AutoScale();
                             formsPlotCompression.Refresh();
 
+                            // update speed plot
                             formsPlotSpeed.Plot.Clear();
                             var spX = DataToArray(timePoints);
                             var spY = DataToArray(speedPoints);
@@ -317,6 +322,8 @@ namespace MultimediaFinalProject
                             spScatter.MarkerSize = 0;
                             spScatter.LineWidth = 2;
                             formsPlotSpeed.Plot.Title("Processing Speed (samples/sec)");
+                            // immediately autoscale axes so speed changes show
+                            formsPlotSpeed.Plot.Axes.AutoScale();
                             formsPlotSpeed.Refresh();
                         });
                     }, token), token);
@@ -409,6 +416,8 @@ namespace MultimediaFinalProject
                         int mu = Math.Max(1, quantLevels);
                         for (int i = 0; i < len; i++)
                         {
+                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
+
                             float x = block[i];
                             compressedBlock[i] = Math.Sign(x) * (float)(Math.Log(1 + mu * Math.Abs(x)) / Math.Log(1 + mu));
                         }
@@ -418,6 +427,8 @@ namespace MultimediaFinalProject
                         compressedBlock = new float[len];
                         for (int i = 0; i < len; i++)
                         {
+                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
+
                             compressedBlock[i] = block[i] - dpcmPrev;
                             dpcmPrev = block[i];
                         }
@@ -427,6 +438,8 @@ namespace MultimediaFinalProject
                         compressedBlock = new float[len];
                         for (int i = 0; i < len; i++)
                         {
+                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
+
                             compressedBlock[i] = block[i] - (predPrev * predGain);
                             predPrev = block[i];
                         }
@@ -436,6 +449,8 @@ namespace MultimediaFinalProject
                         compressedBlock = new float[len];
                         for (int i = 0; i < len; i++)
                         {
+                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
+
                             int bit = (block[i] > dmCurrent) ? 1 : 0;
                             compressedBlock[i] = bit == 1 ? 1f : 0f;
                             dmCurrent += (bit == 1) ? dmStep : -dmStep;
@@ -446,6 +461,8 @@ namespace MultimediaFinalProject
                         compressedBlock = new float[len];
                         for (int i = 0; i < len; i++)
                         {
+                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
+
                             int bit = (block[i] > admCurrent) ? 1 : 0;
                             compressedBlock[i] = bit == 1 ? 1f : 0f;
                             admCurrent += (bit == 1) ? admStep : -admStep;
