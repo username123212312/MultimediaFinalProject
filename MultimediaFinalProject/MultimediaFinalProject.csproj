@@ -23,6 +23,8 @@
   <ItemGroup>
     <PackageReference Include="Argus.Audio.NAudio" Version="2023.11.15.1" />
     <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="ScottPlot" Version="5.1.58" />
+    <PackageReference Include="ScottPlot.WinForms" Version="5.1.58" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
   </ItemGroup>
 
