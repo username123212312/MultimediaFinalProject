@@ -14,9 +14,6 @@ namespace MultimediaFinalProject
 
         private void InitializeComponent()
         {
-            this.components = new Container();
-
-            // Controls
             flowTop = new FlowLayoutPanel();
             button1 = new Button();
             playAudio = new Button();
@@ -26,148 +23,240 @@ namespace MultimediaFinalProject
             btnCompress = new Button();
             btnDecompress = new Button();
             btnCancel = new Button();
-
             pbProgress = new ProgressBar();
-
             tableMain = new TableLayoutPanel();
             formsPlot1 = new FormsPlot();
             rightColumn = new TableLayoutPanel();
             txtInfo = new TextBox();
             formsPlotCompression = new FormsPlot();
             formsPlotSpeed = new FormsPlot();
-
-            // flowTop (top controls)
-            flowTop.Dock = DockStyle.Top;
+            btnSave = new Button();
+            btnReset = new Button();
+            flowTop.SuspendLayout();
+            ((ISupportInitialize)nudQuant).BeginInit();
+            tableMain.SuspendLayout();
+            rightColumn.SuspendLayout();
+            SuspendLayout();
+            // 
+            // flowTop
+            // 
             flowTop.AutoSize = true;
-            flowTop.Padding = new Padding(8);
-            flowTop.FlowDirection = FlowDirection.LeftToRight;
-            flowTop.WrapContents = true;
-
-            // button1
-            button1.Text = "Select Audio";
-            button1.AutoSize = true;
-            button1.Click += button1_Click;
-
-            // playAudio
-            playAudio.Text = "Play";
-            playAudio.AutoSize = true;
-            playAudio.Click += playAudio_Click;
-
-            // stopAudio
-            stopAudio.Text = "Stop";
-            stopAudio.AutoSize = true;
-            stopAudio.Click += stopAudio_Click;
-
-            // cmbAlgorithm
-            cmbAlgorithm.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbAlgorithm.Items.AddRange(new object[] {
-                "Nonlinear Quantization",
-                "DPCM",
-                "Predictive Differential Coding",
-                "Delta Modulation",
-                "Adaptive Delta Modulation"
-            });
-            cmbAlgorithm.SelectedIndex = 0;
-            cmbAlgorithm.Width = 320;
-
-            // nudQuant
-            nudQuant.Minimum = 2;
-            nudQuant.Maximum = 65536;
-            nudQuant.Value = 256;
-            nudQuant.Width = 100;
-
-            // btnCompress
-            btnCompress.Text = "Compress";
-            btnCompress.AutoSize = true;
-            btnCompress.Enabled = false;
-            btnCompress.Click += btnCompress_Click;
-
-            // btnDecompress
-            btnDecompress.Text = "Decompress";
-            btnDecompress.AutoSize = true;
-            btnDecompress.Click += btnDecompress_Click;
-
-            // btnCancel
-            btnCancel.Text = "Cancel";
-            btnCancel.AutoSize = true;
-            btnCancel.Enabled = false;
-            btnCancel.Click += btnCancel_Click;
-
-            // add controls to flowTop in desired order
             flowTop.Controls.Add(button1);
             flowTop.Controls.Add(playAudio);
             flowTop.Controls.Add(stopAudio);
-            flowTop.Controls.Add(new Label() { Text = "Algorithm:", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(12, 8, 0, 0) });
             flowTop.Controls.Add(cmbAlgorithm);
-            flowTop.Controls.Add(new Label() { Text = "Quant:", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(12, 8, 0, 0) });
             flowTop.Controls.Add(nudQuant);
             flowTop.Controls.Add(btnCompress);
             flowTop.Controls.Add(btnDecompress);
             flowTop.Controls.Add(btnCancel);
-
-            // progress bar
+            flowTop.Controls.Add(btnSave);
+            flowTop.Controls.Add(btnReset);
+            flowTop.Dock = DockStyle.Top;
+            flowTop.Location = new Point(0, 0);
+            flowTop.Name = "flowTop";
+            flowTop.Padding = new Padding(8);
+            flowTop.Size = new Size(1100, 78);
+            flowTop.TabIndex = 2;
+            // 
+            // button1
+            // 
+            button1.AutoSize = true;
+            button1.Location = new Point(11, 11);
+            button1.Name = "button1";
+            button1.Size = new Size(83, 25);
+            button1.TabIndex = 0;
+            button1.Text = "Select Audio";
+            button1.Click += button1_Click;
+            // 
+            // playAudio
+            // 
+            playAudio.AutoSize = true;
+            playAudio.Location = new Point(100, 11);
+            playAudio.Name = "playAudio";
+            playAudio.Size = new Size(75, 25);
+            playAudio.TabIndex = 1;
+            playAudio.Text = "Play";
+            playAudio.Click += playAudio_Click;
+            // 
+            // stopAudio
+            // 
+            stopAudio.AutoSize = true;
+            stopAudio.Location = new Point(181, 11);
+            stopAudio.Name = "stopAudio";
+            stopAudio.Size = new Size(75, 25);
+            stopAudio.TabIndex = 2;
+            stopAudio.Text = "Stop";
+            stopAudio.Click += stopAudio_Click;
+            // 
+            // cmbAlgorithm
+            // 
+            cmbAlgorithm.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbAlgorithm.Items.AddRange(new object[] { "Nonlinear Quantization", "DPCM", "Predictive Differential Coding", "Delta Modulation", "Adaptive Delta Modulation" });
+            cmbAlgorithm.Location = new Point(368, 11);
+            cmbAlgorithm.Name = "cmbAlgorithm";
+            cmbAlgorithm.Size = new Size(320, 23);
+            cmbAlgorithm.TabIndex = 4;
+            // 
+            // nudQuant
+            // 
+            nudQuant.Location = new Point(800, 11);
+            nudQuant.Maximum = new decimal(new int[] { 65536, 0, 0, 0 });
+            nudQuant.Minimum = new decimal(new int[] { 2, 0, 0, 0 });
+            nudQuant.Name = "nudQuant";
+            nudQuant.Size = new Size(100, 23);
+            nudQuant.TabIndex = 6;
+            nudQuant.Value = new decimal(new int[] { 256, 0, 0, 0 });
+            // 
+            // btnCompress
+            // 
+            btnCompress.AutoSize = true;
+            btnCompress.Enabled = false;
+            btnCompress.Location = new Point(906, 11);
+            btnCompress.Name = "btnCompress";
+            btnCompress.Size = new Size(75, 25);
+            btnCompress.TabIndex = 7;
+            btnCompress.Text = "Compress";
+            btnCompress.Click += btnCompress_Click;
+            // 
+            // btnDecompress
+            // 
+            btnDecompress.AutoSize = true;
+            btnDecompress.Location = new Point(987, 11);
+            btnDecompress.Name = "btnDecompress";
+            btnDecompress.Size = new Size(82, 25);
+            btnDecompress.TabIndex = 8;
+            btnDecompress.Text = "Decompress";
+            btnDecompress.Click += btnDecompress_Click;
+            // 
+            // btnCancel
+            // 
+            btnCancel.AutoSize = true;
+            btnCancel.Enabled = false;
+            btnCancel.Location = new Point(11, 42);
+            btnCancel.Name = "btnCancel";
+            btnCancel.Size = new Size(75, 25);
+            btnCancel.TabIndex = 9;
+            btnCancel.Text = "Cancel";
+            btnCancel.Click += btnCancel_Click;
+            // 
+            // pbProgress
+            // 
             pbProgress.Dock = DockStyle.Top;
-            pbProgress.Height = 24;
+            pbProgress.Location = new Point(0, 78);
             pbProgress.Margin = new Padding(8);
-
-            // tableMain: 2 columns (left big, right narrow)
-            tableMain.Dock = DockStyle.Fill;
+            pbProgress.Name = "pbProgress";
+            pbProgress.Size = new Size(1100, 24);
+            pbProgress.TabIndex = 1;
+            // 
+            // tableMain
+            // 
             tableMain.ColumnCount = 2;
-            tableMain.RowCount = 1;
-            tableMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F)); // waveform
-            tableMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F)); // right column
-            tableMain.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tableMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F));
+            tableMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+            tableMain.Controls.Add(formsPlot1, 0, 0);
+            tableMain.Controls.Add(rightColumn, 1, 0);
+            tableMain.Dock = DockStyle.Fill;
+            tableMain.Location = new Point(0, 102);
+            tableMain.Name = "tableMain";
             tableMain.Padding = new Padding(8);
-
-            // formsPlot1 (waveform) - left column
+            tableMain.RowCount = 1;
+            tableMain.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tableMain.Size = new Size(1100, 618);
+            tableMain.TabIndex = 0;
+            // 
+            // formsPlot1
+            // 
             formsPlot1.Dock = DockStyle.Fill;
+            formsPlot1.Location = new Point(14, 14);
             formsPlot1.Margin = new Padding(6);
-
-            // rightColumn: 3 rows - txtInfo, compression plot, speed plot
-            rightColumn.Dock = DockStyle.Fill;
+            formsPlot1.Name = "formsPlot1";
+            formsPlot1.Size = new Size(746, 590);
+            formsPlot1.TabIndex = 0;
+            // 
+            // rightColumn
+            // 
             rightColumn.ColumnCount = 1;
-            rightColumn.RowCount = 3;
-            rightColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 40F)); // txtInfo
-            rightColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 30F)); // compression
-            rightColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 30F)); // speed
-            rightColumn.Padding = new Padding(6);
-
-            // txtInfo
-            txtInfo.Dock = DockStyle.Fill;
-            txtInfo.Multiline = true;
-            txtInfo.ReadOnly = true;
-            txtInfo.ScrollBars = ScrollBars.Vertical;
-            txtInfo.Margin = new Padding(6);
-
-            // formsPlotCompression
-            formsPlotCompression.Dock = DockStyle.Fill;
-            formsPlotCompression.Margin = new Padding(6);
-
-            // formsPlotSpeed
-            formsPlotSpeed.Dock = DockStyle.Fill;
-            formsPlotSpeed.Margin = new Padding(6);
-
-            // assemble right column
+            rightColumn.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20F));
             rightColumn.Controls.Add(txtInfo, 0, 0);
             rightColumn.Controls.Add(formsPlotCompression, 0, 1);
             rightColumn.Controls.Add(formsPlotSpeed, 0, 2);
-
-            // add left and right to main table
-            tableMain.Controls.Add(formsPlot1, 0, 0);
-            tableMain.Controls.Add(rightColumn, 1, 0);
-
-            // Form properties
-            this.Text = "MultimediaFinalProject";
-            this.Name = "Form1";
-            this.ClientSize = new Size(1100, 720);
-            this.AutoScaleMode = AutoScaleMode.Font;
-
-            // add top-level controls to the Form
-            this.Controls.Add(tableMain);
-            this.Controls.Add(pbProgress);
-            this.Controls.Add(flowTop);
-
-            // finalize
+            rightColumn.Dock = DockStyle.Fill;
+            rightColumn.Location = new Point(769, 11);
+            rightColumn.Name = "rightColumn";
+            rightColumn.Padding = new Padding(6);
+            rightColumn.RowCount = 3;
+            rightColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 40F));
+            rightColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 30F));
+            rightColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 30F));
+            rightColumn.Size = new Size(320, 596);
+            rightColumn.TabIndex = 1;
+            // 
+            // txtInfo
+            // 
+            txtInfo.Dock = DockStyle.Fill;
+            txtInfo.Location = new Point(12, 12);
+            txtInfo.Margin = new Padding(6);
+            txtInfo.Multiline = true;
+            txtInfo.Name = "txtInfo";
+            txtInfo.ReadOnly = true;
+            txtInfo.ScrollBars = ScrollBars.Vertical;
+            txtInfo.Size = new Size(296, 221);
+            txtInfo.TabIndex = 0;
+            // 
+            // formsPlotCompression
+            // 
+            formsPlotCompression.Dock = DockStyle.Fill;
+            formsPlotCompression.Location = new Point(12, 245);
+            formsPlotCompression.Margin = new Padding(6);
+            formsPlotCompression.Name = "formsPlotCompression";
+            formsPlotCompression.Size = new Size(296, 163);
+            formsPlotCompression.TabIndex = 1;
+            // 
+            // formsPlotSpeed
+            // 
+            formsPlotSpeed.Dock = DockStyle.Fill;
+            formsPlotSpeed.Location = new Point(12, 420);
+            formsPlotSpeed.Margin = new Padding(6);
+            formsPlotSpeed.Name = "formsPlotSpeed";
+            formsPlotSpeed.Size = new Size(296, 164);
+            formsPlotSpeed.TabIndex = 2;
+            // 
+            // btnSave
+            // 
+            btnSave.Location = new Point(92, 42);
+            btnSave.Name = "btnSave";
+            btnSave.Size = new Size(75, 23);
+            btnSave.TabIndex = 10;
+            btnSave.Text = "Save";
+            btnSave.UseVisualStyleBackColor = true;
+            //btnSave.Click += btnSave_Click;
+            // 
+            // btnReset
+            // 
+            btnReset.Location = new Point(173, 42);
+            btnReset.Name = "btnReset";
+            btnReset.Size = new Size(75, 23);
+            btnReset.TabIndex = 11;
+            btnReset.Text = "Reset";
+            btnReset.UseVisualStyleBackColor = true;
+            //btnReset.Click += btnReset_Click;
+            // 
+            // Form1
+            // 
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(1100, 720);
+            Controls.Add(tableMain);
+            Controls.Add(pbProgress);
+            Controls.Add(flowTop);
+            Name = "Form1";
+            Text = "MultimediaFinalProject";
+            flowTop.ResumeLayout(false);
+            flowTop.PerformLayout();
+            ((ISupportInitialize)nudQuant).EndInit();
+            tableMain.ResumeLayout(false);
+            rightColumn.ResumeLayout(false);
+            rightColumn.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -186,6 +275,8 @@ namespace MultimediaFinalProject
         private Button btnCompress;
         private Button btnDecompress;
         private Button btnCancel;
+        private Button btnReset;
+        private Button btnSave;
         private TextBox txtInfo;
         private FormsPlot formsPlot1;
         private ProgressBar pbProgress;
