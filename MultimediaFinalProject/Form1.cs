@@ -12,6 +12,8 @@ using TagLib;
 using NAudio.Wave;
 using ScottPlot;
 
+
+
 namespace MultimediaFinalProject
 {
     public partial class Form1 : Form
@@ -25,6 +27,12 @@ namespace MultimediaFinalProject
 
         // compression control
         private CancellationTokenSource? compressionCts;
+
+        private string? currentAudioFilePath;
+
+        private double originalFileSizeMB;
+        private object compressedData;
+        private bool isCompressedAsBytes = false;
 
         public Form1()
         {
@@ -77,6 +85,11 @@ namespace MultimediaFinalProject
                 MessageBox.Show("File not found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+
+            currentAudioFilePath = filePath;
+
+            FileInfo fileInfo = new FileInfo(filePath);
+            originalFileSizeMB = fileInfo.Length / (1024.0 * 1024.0);
 
             try
             {
@@ -331,19 +344,58 @@ namespace MultimediaFinalProject
                 // if completed without cancellation, prompt Save As
                 if (!token.IsCancellationRequested)
                 {
-                    using var sfd = new SaveFileDialog
-                    {
-                        Filter = "WAV Files|*.wav",
-                        Title = "Save compressed audio as",
-                        FileName = "CompressedAudio.wav",
-                        DefaultExt = "wav"
-                    };
+                    compressedData = result;
 
-                    if (sfd.ShowDialog() == DialogResult.OK)
+                    double originalSizeMB = originalFileSizeMB;
+                    double compressedSizeMB;
+
+                    //if (result is byte[] byteResult)
+                    //{
+                    //    compressedSizeMB = byteResult.Length / (1024.0 * 1024.0);
+                    //    compressedData = byteResult;
+                    //    isCompressedAsBytes = true;
+                    //}
+                    //else if (result is float[] floatResult)
+                    if (result is float[] floatResult)
                     {
-                        SaveCompressedFile(result, sfd.FileName);
-                        MessageBox.Show("Compressed file saved: " + sfd.FileName, "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        compressedSizeMB = (floatResult.Length * 4.0) / (1024.0 * 1024.0);
+                        compressedData = floatResult;
+                        isCompressedAsBytes = false;
                     }
+                    else
+                    {
+                        compressedSizeMB = 0;
+                        compressedData = null;
+                    }
+                    double savingsPercent = 100.0 * (1.0 - (compressedSizeMB / originalSizeMB));
+                    if (savingsPercent < 0) savingsPercent = 0;
+                    double timeSeconds = swTotal.Elapsed.TotalSeconds;
+
+                    int sampleBitRate = GetBitRateForAlgorithm(algo);
+                    int samplingRate = audioSampleRate;
+
+                    // Add compression info to the info text box
+                    string reportText = "";
+                    reportText += "-----------------------------------------" + Environment.NewLine;
+                    reportText += "        COMPRESSION REPORT" + Environment.NewLine;
+                    reportText += "-----------------------------------------" + Environment.NewLine;
+                    reportText += Environment.NewLine;
+                    reportText += $"Original File Size:     {originalSizeMB:F2} MB" + Environment.NewLine;
+                    reportText += $"Compressed File Size:   {compressedSizeMB:F2} MB" + Environment.NewLine;
+                    reportText += $"Compression Savings:    {savingsPercent:F2}%" + Environment.NewLine;
+                    reportText += $"Processing Time:        {timeSeconds:F2} seconds" + Environment.NewLine;
+                    reportText += Environment.NewLine;
+                    reportText += "-----------------------------------------" + Environment.NewLine;
+                    reportText += "        ALGORITHM SETTINGS" + Environment.NewLine;
+                    reportText += "-----------------------------------------" + Environment.NewLine;
+                    reportText += $"Algorithm Used:         {algo}" + Environment.NewLine;
+                    reportText += $"Sample Bit Rate:        {sampleBitRate} bit/sample" + Environment.NewLine;
+                    reportText += $"Sampling Rate:          {samplingRate} Hz" + Environment.NewLine;
+
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        txtInfo.Text += Environment.NewLine + reportText;
+                    }));
                 }
                 else
                 {
@@ -549,6 +601,28 @@ namespace MultimediaFinalProject
             writer.Write(bytes, 0, bytes.Length);
         }
 
+        private int GetBitRateForAlgorithm(string algorithm)
+        {
+            switch (algorithm)
+            {
+                case "Delta Modulation":
+                case "Adaptive Delta Modulation":
+                    return 1;  // 1 bit per sample
+
+                case "Nonlinear Quantization":
+                    int mu = (int)nudQuant.Value;
+                    if (mu <= 256) return 8;   // 8 bits per sample
+                    return 16;  // 16 bits per sample
+
+                case "DPCM":
+                case "Predictive Differential Coding":
+                    return 16;  // 16 bits per sample (float)
+
+                default:
+                    return 16;
+            }
+        }
+
         private void btnDecompress_Click(object sender, EventArgs e)
         {
             using var ofd = new OpenFileDialog
@@ -676,6 +750,85 @@ namespace MultimediaFinalProject
             {
                 MessageBox.Show("Failed to save decompressed file: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+
+
+        }
+        private async void btnReset_Click(object sender, EventArgs e)
+        {
+            if (cmbAlgorithm.Items.Count > 0)
+            {
+                cmbAlgorithm.SelectedIndex = 0;
+            }
+            nudQuant.Value = 256;
+            pbProgress.Value = 0;
+
+            compressedData = null;
+
+            outputDevice?.Stop();
+
+            if (audioSamples != null && audioSamples.Length > 0 && !string.IsNullOrEmpty(currentAudioFilePath))
+            {
+                try
+                {
+                    LoadAndPlay(currentAudioFilePath, autoPlay: false);
+
+                    using var readerForSamples = new AudioFileReader(currentAudioFilePath);
+                    audioSamples = new float[readerForSamples.Length / 4];
+                    readerForSamples.Read(audioSamples, 0, audioSamples.Length);
+                    audioSampleRate = readerForSamples.WaveFormat.SampleRate;
+
+                    if (audioFile != null)
+                        audioFile.Position = 0;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error resetting audio: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("Settings have been reset to default values.\n(No audio file was loaded)",
+                                "Reset Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            if (compressedData == null)
+            {
+                MessageBox.Show("No compressed data to save. Please compress first.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using var sfd = new SaveFileDialog
+            {
+                Filter = "WAV Files|*.wav",
+                Title = "Save compressed audio as",
+                FileName = "CompressedAudio.wav",
+                DefaultExt = "wav"
+            };
+
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    if (isCompressedAsBytes && compressedData is byte[] byteData)
+                    {
+                        System.IO.File.WriteAllBytes(sfd.FileName, byteData);
+                        MessageBox.Show("Compressed file saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else if (compressedData is float[] floatData)
+                    {
+                        SaveCompressedFile(floatData, sfd.FileName);
+                        MessageBox.Show("Compressed file saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Failed to save file: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+
         }
     }
 }

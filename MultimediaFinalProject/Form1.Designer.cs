@@ -229,7 +229,7 @@ namespace MultimediaFinalProject
             btnSave.TabIndex = 10;
             btnSave.Text = "Save";
             btnSave.UseVisualStyleBackColor = true;
-            //btnSave.Click += btnSave_Click;
+            btnSave.Click += btnSave_Click;
             // 
             // btnReset
             // 
@@ -239,7 +239,7 @@ namespace MultimediaFinalProject
             btnReset.TabIndex = 11;
             btnReset.Text = "Reset";
             btnReset.UseVisualStyleBackColor = true;
-            //btnReset.Click += btnReset_Click;
+            btnReset.Click += btnReset_Click;
             // 
             // Form1
             // 
