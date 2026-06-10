@@ -93,11 +93,16 @@ namespace MultimediaFinalProject
 
             try
             {
-                // read samples for compressor usage (unchanged)
-                using var readerForSamples = new AudioFileReader(filePath);
-                audioSamples = new float[readerForSamples.Length / 4];
-                readerForSamples.Read(audioSamples, 0, audioSamples.Length);
-                audioSampleRate = readerForSamples.WaveFormat.SampleRate;
+                using var reader = new AudioFileReader(filePath);
+
+                int targetRate = (int)nudSampleRate.Value;
+
+                var resampler = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(reader, targetRate);
+
+                audioSamples = new float[(int)(resampler.WaveFormat.SampleRate * reader.TotalTime.TotalSeconds)];
+                resampler.Read(audioSamples, 0, audioSamples.Length);
+
+                audioSampleRate = targetRate;
 
                 btnCompress.Enabled = true;
 
@@ -828,6 +833,11 @@ namespace MultimediaFinalProject
                     MessageBox.Show("Failed to save file: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
+
+        }
+
+        private void cmbAlgorithm_SelectedIndexChanged(object sender, EventArgs e)
+        {
 
         }
     }
