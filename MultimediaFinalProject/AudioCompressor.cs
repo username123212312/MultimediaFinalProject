@@ -4,85 +4,169 @@ namespace MultimediaFinalProject
 {
     public class AudioCompressor
     {
-        // 1. Nonlinear Quantization 
-        public float[] ApplyNonlinearQuantization(float[] samples, int mu = 255)
+        // 1. Nonlinear Quantization -  —Ã⁄ byte[] (8-bit √Ê 16-bit)
+        public byte[] ApplyNonlinearQuantization(float[] samples, int mu = 255)
         {
-            float[] output = new float[samples.Length];
+            int bitsPerSample = (mu <= 256) ? 8 : 16;
+            int bytesPerSample = bitsPerSample / 8;
+            byte[] output = new byte[samples.Length * bytesPerSample];
+
             for (int i = 0; i < samples.Length; i++)
             {
-                output[i] = (float)(Math.Sign(samples[i]) * (Math.Log(1 + mu * Math.Abs(samples[i])) / Math.Log(1 + mu)));
+                //  ÿ»Ìﬁ mu-law
+                float compressed = (float)(Math.Sign(samples[i]) * (Math.Log(1 + mu * Math.Abs(samples[i])) / Math.Log(1 + mu)));
+
+                //  ÕÊÌ· „‰ [-1, 1] ≈·Ï [0, 255] √Ê [0, 65535]
+                if (bitsPerSample == 8)
+                {
+                    byte quantized = (byte)((compressed + 1) / 2 * 255);
+                    output[i] = quantized;
+                }
+                else
+                {
+                    ushort quantized = (ushort)((compressed + 1) / 2 * 65535);
+                    output[i * 2] = (byte)(quantized & 0xFF);
+                    output[i * 2 + 1] = (byte)((quantized >> 8) & 0xFF);
+                }
             }
             return output;
         }
 
-        // Inverse of Nonlinear Quantization (mu-law expansion)
-        public float[] DecompressNonlinearQuantization(float[] compressed, int mu = 255)
+        // Inverse Nonlinear Quantization
+        public float[] DecompressNonlinearQuantization(byte[] compressed, int mu = 255, int totalSamples = 0)
         {
-            float[] output = new float[compressed.Length];
-            for (int i = 0; i < compressed.Length; i++)
+            int bitsPerSample = (mu <= 256) ? 8 : 16;
+            int bytesPerSample = bitsPerSample / 8;
+            int sampleCount = (totalSamples > 0) ? totalSamples : compressed.Length / bytesPerSample;
+            float[] output = new float[sampleCount];
+
+            for (int i = 0; i < sampleCount; i++)
             {
-                float y = compressed[i];
-                float sign = Math.Sign(y);
-                float absY = Math.Abs(y);
-                // inverse mu-law: x = sign * ( (1+mu)^{|y|} - 1 ) / mu
+                float normalized;
+                if (bitsPerSample == 8)
+                {
+                    normalized = compressed[i] / 255.0f * 2 - 1;
+                }
+                else
+                {
+                    ushort value = (ushort)(compressed[i * 2] | (compressed[i * 2 + 1] << 8));
+                    normalized = value / 65535.0f * 2 - 1;
+                }
+
+                float sign = Math.Sign(normalized);
+                float absY = Math.Abs(normalized);
                 output[i] = sign * (float)((Math.Pow(1 + mu, absY) - 1.0) / mu);
             }
             return output;
         }
 
-        // 2. DPCM
-        public float[] ApplyDPCM(float[] samples)
+        // 2. DPCM „⁄ Quantization -  —Ã⁄ byte[]
+        public byte[] ApplyDPCM(float[] samples, int bitsPerSample = 8)
         {
-            float[] output = new float[samples.Length];
+            int maxValue = (1 << bitsPerSample) - 1;
+            byte[] output = new byte[samples.Length];
             float prev = 0;
+            float minDiff = float.MaxValue;
+            float maxDiff = float.MinValue;
+
+            // √Ê·«: Õ”«» «·›—Êﬁ« 
+            float[] diffs = new float[samples.Length];
             for (int i = 0; i < samples.Length; i++)
             {
-                output[i] = samples[i] - prev;
+                diffs[i] = samples[i] - prev;
                 prev = samples[i];
+                if (diffs[i] < minDiff) minDiff = diffs[i];
+                if (diffs[i] > maxDiff) maxDiff = diffs[i];
             }
-            return output;
-        }
 
-        // Inverse DPCM (cumulative sum)
-        public float[] DecompressDPCM(float[] diffs)
-        {
-            float[] output = new float[diffs.Length];
-            if (diffs.Length == 0) return output;
-            output[0] = diffs[0];
-            for (int i = 1; i < diffs.Length; i++)
+            // Quantization «·›—Êﬁ« 
+            float range = maxDiff - minDiff;
+            for (int i = 0; i < samples.Length; i++)
             {
-                output[i] = diffs[i] + output[i - 1];
+                int quantized = (int)(((diffs[i] - minDiff) / range) * maxValue);
+                if (quantized < 0) quantized = 0;
+                if (quantized > maxValue) quantized = maxValue;
+                output[i] = (byte)quantized;
             }
+
             return output;
         }
 
-        // 3. Predictive Differential Coding
-        public float[] ApplyPredictiveCoding(float[] samples)
+        public float[] DecompressDPCM(byte[] compressed, int bitsPerSample = 8, float minDiff = -1f, float maxDiff = 1f)
         {
-            float[] output = new float[samples.Length];
-            for (int i = 1; i < samples.Length; i++)
-            {
-                output[i] = samples[i] - (samples[i - 1] * 0.9f); 
-            }
-            return output;
-        }
-
-        // Inverse Predictive Coding
-        // Assumes compressed[0] contains the original first sample (if not available, reconstruction will be imperfect).
-        public float[] DecompressPredictiveCoding(float[] compressed, float predictorGain = 0.9f)
-        {
+            int maxValue = (1 << bitsPerSample) - 1;
             float[] output = new float[compressed.Length];
-            if (compressed.Length == 0) return output;
-            output[0] = compressed[0];
+            float range = maxDiff - minDiff;
+
+            output[0] = compressed[0] / (float)maxValue * range + minDiff;
             for (int i = 1; i < compressed.Length; i++)
             {
-                output[i] = compressed[i] + (output[i - 1] * predictorGain);
+                float diff = compressed[i] / (float)maxValue * range + minDiff;
+                output[i] = output[i - 1] + diff;
             }
             return output;
         }
 
-        // 4. Delta Modulation 
-        public int[] ApplyDeltaModulation(float[] samples, float step = 0.05f)
+        // 3. Predictive Differential Coding „⁄ Quantization -  —Ã⁄ byte[]
+        public byte[] ApplyPredictiveCoding(float[] samples, float predictorGain = 0.9f, int bitsPerSample = 8)
+        {
+            int maxValue = (1 << bitsPerSample) - 1;
+            byte[] output = new byte[samples.Length];
+            float prev = samples[0];
+            float minError = float.MaxValue;
+            float maxError = float.MinValue;
+
+            // Õ›Ÿ √Ê· ⁄Ì‰… »‘ﬂ· „‰›’· (‰Õ «ÃÂ« ··›ﬂ)
+            float[] errors = new float[samples.Length];
+            errors[0] = samples[0];
+
+            for (int i = 1; i < samples.Length; i++)
+            {
+                float predicted = prev * predictorGain;
+                errors[i] = samples[i] - predicted;
+                prev = samples[i];
+                if (errors[i] < minError) minError = errors[i];
+                if (errors[i] > maxError) maxError = errors[i];
+            }
+
+            // Quantization «·√Œÿ«¡
+            float range = maxError - minError;
+            for (int i = 0; i < samples.Length; i++)
+            {
+                int quantized = (int)(((errors[i] - minError) / range) * maxValue);
+                if (quantized < 0) quantized = 0;
+                if (quantized > maxValue) quantized = maxValue;
+                output[i] = (byte)quantized;
+            }
+
+            return output;
+        }
+
+        public float[] DecompressPredictiveCoding(byte[] compressed, float predictorGain = 0.9f, int bitsPerSample = 8, float minError = -1f, float maxError = 1f)
+        {
+            int maxValue = (1 << bitsPerSample) - 1;
+            float[] output = new float[compressed.Length];
+            float range = maxError - minError;
+
+            output[0] = compressed[0] / (float)maxValue * range + minError;
+
+            for (int i = 1; i < compressed.Length; i++)
+            {
+                float error = compressed[i] / (float)maxValue * range + minError;
+                float predicted = output[i - 1] * predictorGain;
+                output[i] = predicted + error;
+            }
+            return output;
+        }
+
+        // 4. Delta Modulation -  —Ã⁄ byte[] (1 bit per sample, packed)
+        public byte[] ApplyDeltaModulation(float[] samples, float step = 0.05f)
+        {
+            int[] bits = ApplyDeltaModulationBits(samples, step);
+            return PackBitsToBytes(bits);
+        }
+
+        public int[] ApplyDeltaModulationBits(float[] samples, float step = 0.05f)
         {
             int[] output = new int[samples.Length];
             float current = 0;
@@ -94,8 +178,13 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // Inverse Delta Modulation (reconstruct from bits)
-        public float[] DecompressDeltaModulation(int[] bits, float step = 0.05f)
+        public float[] DecompressDeltaModulation(byte[] packed, int totalSamples, float step = 0.05f)
+        {
+            int[] bits = UnpackBytesToBits(packed, totalSamples);
+            return DecompressDeltaModulationBits(bits, step);
+        }
+
+        public float[] DecompressDeltaModulationBits(int[] bits, float step = 0.05f)
         {
             float[] output = new float[bits.Length];
             float current = 0;
@@ -107,8 +196,14 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // 5. Adaptive Delta Modulation 
-        public int[] ApplyAdaptiveDeltaModulation(float[] samples)
+        // 5. Adaptive Delta Modulation -  —Ã⁄ byte[] (1 bit per sample, packed)
+        public byte[] ApplyAdaptiveDeltaModulation(float[] samples)
+        {
+            int[] bits = ApplyAdaptiveDeltaModulationBits(samples);
+            return PackBitsToBytes(bits);
+        }
+
+        public int[] ApplyAdaptiveDeltaModulationBits(float[] samples)
         {
             int[] output = new int[samples.Length];
             float current = 0;
@@ -118,12 +213,18 @@ namespace MultimediaFinalProject
                 output[i] = (samples[i] > current) ? 1 : 0;
                 current += (output[i] == 1) ? step : -step;
                 step = (samples[i] > current) ? step * 1.1f : step * 0.9f;
+                if (step < 0.001f) step = 0.001f;
             }
             return output;
         }
 
-        // Inverse Adaptive Delta Modulation (reconstruct with adaptive step)
-        public float[] DecompressAdaptiveDeltaModulation(int[] bits, float initialStep = 0.05f)
+        public float[] DecompressAdaptiveDeltaModulation(byte[] packed, int totalSamples, float initialStep = 0.05f)
+        {
+            int[] bits = UnpackBytesToBits(packed, totalSamples);
+            return DecompressAdaptiveDeltaModulationBits(bits, initialStep);
+        }
+
+        public float[] DecompressAdaptiveDeltaModulationBits(int[] bits, float initialStep = 0.05f)
         {
             float[] output = new float[bits.Length];
             float current = 0;
@@ -133,8 +234,37 @@ namespace MultimediaFinalProject
                 output[i] = current;
                 current += (bits[i] == 1) ? step : -step;
                 step = (bits[i] == 1) ? step * 1.1f : step * 0.9f;
+                if (step < 0.001f) step = 0.001f;
             }
             return output;
+        }
+
+        // ========== œÊ«· „”«⁄œ… ==========
+
+        // Pack 8 bits into 1 byte
+        private byte[] PackBitsToBytes(int[] bits)
+        {
+            int byteCount = (bits.Length + 7) / 8;
+            byte[] packed = new byte[byteCount];
+            for (int i = 0; i < bits.Length; i++)
+            {
+                if (bits[i] == 1)
+                {
+                    packed[i / 8] |= (byte)(1 << (i % 8));
+                }
+            }
+            return packed;
+        }
+
+        // Unpack bytes to bits
+        private int[] UnpackBytesToBits(byte[] packed, int totalBits)
+        {
+            int[] bits = new int[totalBits];
+            for (int i = 0; i < totalBits; i++)
+            {
+                bits[i] = (packed[i / 8] >> (i % 8)) & 1;
+            }
+            return bits;
         }
     }
 }

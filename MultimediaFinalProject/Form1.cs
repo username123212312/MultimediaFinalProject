@@ -284,7 +284,7 @@ namespace MultimediaFinalProject
             try
             {
                 // run compression with progress
-                float[] result = await Task.Run(() =>
+                object result = await Task.Run(() =>
                     ProcessCompressionWithProgress(algo, quantLevels, progressCallback: (processed, total, bytesCompressed, elapsedMs) =>
                     {
                         // executed on thread pool — marshal to UI
@@ -349,14 +349,13 @@ namespace MultimediaFinalProject
                     double originalSizeMB = originalFileSizeMB;
                     double compressedSizeMB;
 
-                    //if (result is byte[] byteResult)
-                    //{
-                    //    compressedSizeMB = byteResult.Length / (1024.0 * 1024.0);
-                    //    compressedData = byteResult;
-                    //    isCompressedAsBytes = true;
-                    //}
-                    //else if (result is float[] floatResult)
-                    if (result is float[] floatResult)
+                    if (result is byte[] byteResult)
+                    {
+                        compressedSizeMB = byteResult.Length / (1024.0 * 1024.0);
+                        compressedData = byteResult;
+                        isCompressedAsBytes = true;
+                    }
+                    else if (result is float[] floatResult)
                     {
                         compressedSizeMB = (floatResult.Length * 4.0) / (1024.0 * 1024.0);
                         compressedData = floatResult;
@@ -366,6 +365,7 @@ namespace MultimediaFinalProject
                     {
                         compressedSizeMB = 0;
                         compressedData = null;
+                        isCompressedAsBytes = false;
                     }
                     double savingsPercent = 100.0 * (1.0 - (compressedSizeMB / originalSizeMB));
                     if (savingsPercent < 0) savingsPercent = 0;
@@ -430,12 +430,13 @@ namespace MultimediaFinalProject
 
         // Core processing with chunked operation, progress callback, and cancellation support.
         // progressCallback parameters: processedSamplesSoFar, totalSamples, bytesCompressedSoFar, elapsedMsSinceStart
-        private float[] ProcessCompressionWithProgress(string algorithm, int quantLevels, Action<int, int, double, double> progressCallback, CancellationToken token)
+        private object ProcessCompressionWithProgress(string algorithm, int quantLevels, Action<int, int, double, double> progressCallback, CancellationToken token)
         {
             const int blockSize = 4096; // smaller block for more frequent updates
             int total = audioSamples.Length;
             var output = new List<float>(total);
             var sw = Stopwatch.StartNew();
+            var compressor = new AudioCompressor();
 
             // stateful variables for algorithms that need continuity across blocks
             float dpcmPrev = 0f;
@@ -445,6 +446,9 @@ namespace MultimediaFinalProject
             float admCurrent = 0f;
             float admStep = 0.05f;
             float dmStep = 0.05f;
+
+            List<byte> allBytes = new List<byte>();
+            bool isPacked = false;
 
             double compressedBytesSoFar = 0.0;
             double originalBytesSoFar = 0.0;
@@ -459,67 +463,46 @@ namespace MultimediaFinalProject
 
                 var swBlock = Stopwatch.StartNew();
 
-                float[] compressedBlock;
-
                 switch (algorithm)
                 {
                     case "Nonlinear Quantization":
-                        compressedBlock = new float[len];
-                        int mu = Math.Max(1, quantLevels);
-                        for (int i = 0; i < len; i++)
                         {
-                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
-
-                            float x = block[i];
-                            compressedBlock[i] = Math.Sign(x) * (float)(Math.Log(1 + mu * Math.Abs(x)) / Math.Log(1 + mu));
+                            int mu = Math.Max(1, quantLevels);
+                            byte[] packed = compressor.ApplyNonlinearQuantization(block, mu);
+                            allBytes.AddRange(packed);
+                            isPacked = true;
                         }
                         break;
 
                     case "DPCM":
-                        compressedBlock = new float[len];
-                        for (int i = 0; i < len; i++)
                         {
-                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
-
-                            compressedBlock[i] = block[i] - dpcmPrev;
-                            dpcmPrev = block[i];
+                            byte[] packed = compressor.ApplyDPCM(block, 8);
+                            allBytes.AddRange(packed);
+                            isPacked = true;
                         }
                         break;
 
                     case "Predictive Differential Coding":
-                        compressedBlock = new float[len];
-                        for (int i = 0; i < len; i++)
                         {
-                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
-
-                            compressedBlock[i] = block[i] - (predPrev * predGain);
-                            predPrev = block[i];
+                            byte[] packed = compressor.ApplyPredictiveCoding(block, predGain, 8);
+                            allBytes.AddRange(packed);
+                            isPacked = true;
                         }
                         break;
 
                     case "Delta Modulation":
-                        compressedBlock = new float[len];
-                        for (int i = 0; i < len; i++)
                         {
-                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
-
-                            int bit = (block[i] > dmCurrent) ? 1 : 0;
-                            compressedBlock[i] = bit == 1 ? 1f : 0f;
-                            dmCurrent += (bit == 1) ? dmStep : -dmStep;
+                            byte[] packed = compressor.ApplyDeltaModulation(block, dmStep);
+                            allBytes.AddRange(packed);
+                            isPacked = true;
                         }
                         break;
 
                     case "Adaptive Delta Modulation":
-                        compressedBlock = new float[len];
-                        for (int i = 0; i < len; i++)
                         {
-                            if ((i & 63) == 0) token.ThrowIfCancellationRequested();
-
-                            int bit = (block[i] > admCurrent) ? 1 : 0;
-                            compressedBlock[i] = bit == 1 ? 1f : 0f;
-                            admCurrent += (bit == 1) ? admStep : -admStep;
-                            admStep = (block[i] > admCurrent) ? admStep * 1.1f : admStep * 0.9f;
-                            if (admStep < 1e-6f) admStep = 1e-6f;
+                            byte[] packed = compressor.ApplyAdaptiveDeltaModulation(block);
+                            allBytes.AddRange(packed);
+                            isPacked = true;
                         }
                         break;
 
@@ -527,22 +510,19 @@ namespace MultimediaFinalProject
                         throw new InvalidOperationException("Unknown algorithm: " + algorithm);
                 }
 
-                // append compressedBlock to output
-                output.AddRange(compressedBlock);
-
-                // account bytes (we store as floats currently)
-                compressedBytesSoFar = output.Count * 4.0;
-                originalBytesSoFar += len * 4.0;
-
                 swBlock.Stop();
-                double elapsedMs = sw.Elapsed.TotalMilliseconds;
-                double blockElapsedMs = Math.Max(1.0, swBlock.Elapsed.TotalMilliseconds); // avoid div by zero
-
-                // report processed samples, total samples, compressed bytes and blockElapsedMs to compute speed externally
+                compressedBytesSoFar = allBytes.Count;
+                double blockElapsedMs = Math.Max(1.0, swBlock.Elapsed.TotalMilliseconds);
                 progressCallback?.Invoke(offset + len, total, compressedBytesSoFar, blockElapsedMs);
             }
 
             sw.Stop();
+
+            if (isPacked)
+            {
+                return allBytes.ToArray();
+            }
+
             return output.ToArray();
         }
 
@@ -627,60 +607,17 @@ namespace MultimediaFinalProject
         {
             using var ofd = new OpenFileDialog
             {
-                Filter = "WAV Files|*.wav",
+                Filter = "Compressed Files|*.bin",
                 Title = "Open compressed WAV"
             };
             if (ofd.ShowDialog() != DialogResult.OK) return;
 
             string filePath = ofd.FileName;
-            float[] compressedSamples;
             int sampleRate = 44100;
 
-            try
-            {
-                using var reader = new WaveFileReader(filePath);
-                sampleRate = reader.WaveFormat.SampleRate;
-                int channels = reader.WaveFormat.Channels;
-                var sampleProvider = reader.ToSampleProvider();
+            byte[] compressedBytes = System.IO.File.ReadAllBytes(filePath);
 
-                var samplesList = new List<float>();
-                float[] buffer = new float[4096 * Math.Max(1, channels)];
-                int read;
-                while ((read = sampleProvider.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    if (channels == 1)
-                    {
-                        for (int i = 0; i < read; i++) samplesList.Add(buffer[i]);
-                    }
-                    else
-                    {
-                        int frames = read / channels;
-                        for (int f = 0; f < frames; f++)
-                        {
-                            float sum = 0;
-                            for (int c = 0; c < channels; c++) sum += buffer[f * channels + c];
-                            samplesList.Add(sum / channels);
-                        }
-
-                        int trailing = read % channels;
-                        if (trailing != 0)
-                        {
-                            float sum = 0;
-                            for (int t = read - trailing; t < read; t++) sum += buffer[t];
-                            samplesList.Add(sum / trailing);
-                        }
-                    }
-                }
-
-                compressedSamples = samplesList.ToArray();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Failed to read compressed WAV: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            if (compressedSamples == null || compressedSamples.Length == 0)
+            if (compressedBytes == null || compressedBytes.Length == 0)
             {
                 MessageBox.Show("No samples in selected file.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -695,32 +632,33 @@ namespace MultimediaFinalProject
             var compressor = new AudioCompressor();
             string algo = cmbAlgorithm.SelectedItem.ToString() ?? string.Empty;
             float[] decompressed = null!;
+            int totalSamples = audioSamples?.Length ?? 0;
 
             try
             {
+
                 switch (algo)
                 {
                     case "Nonlinear Quantization":
-                        decompressed = compressor.DecompressNonlinearQuantization(compressedSamples, (int)nudQuant.Value);
+                        decompressed = compressor.DecompressNonlinearQuantization(compressedBytes, (int)nudQuant.Value, totalSamples);
                         break;
+
                     case "DPCM":
-                        decompressed = compressor.DecompressDPCM(compressedSamples);
+                        decompressed = compressor.DecompressDPCM(compressedBytes, 8, -1f, 1f);
                         break;
+
                     case "Predictive Differential Coding":
-                        decompressed = compressor.DecompressPredictiveCoding(compressedSamples);
+                        decompressed = compressor.DecompressPredictiveCoding(compressedBytes, 0.9f, 8, -1f, 1f);
                         break;
+
                     case "Delta Modulation":
-                        {
-                            var bits = Array.ConvertAll(compressedSamples, s => s >= 0.5f ? 1 : 0);
-                            decompressed = compressor.DecompressDeltaModulation(bits);
-                        }
+                        decompressed = compressor.DecompressDeltaModulation(compressedBytes, totalSamples, 0.05f);
                         break;
+
                     case "Adaptive Delta Modulation":
-                        {
-                            var bits = Array.ConvertAll(compressedSamples, s => s >= 0.5f ? 1 : 0);
-                            decompressed = compressor.DecompressAdaptiveDeltaModulation(bits);
-                        }
+                        decompressed = compressor.DecompressAdaptiveDeltaModulation(compressedBytes, totalSamples, 0.05f);
                         break;
+
                     default:
                         MessageBox.Show("Decompression not implemented for selected algorithm.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
@@ -732,11 +670,17 @@ namespace MultimediaFinalProject
                 return;
             }
 
+            if (decompressed == null || decompressed.Length == 0)
+            {
+                MessageBox.Show("Decompression produced no data.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
             using var sfd = new SaveFileDialog
             {
                 Filter = "WAV Files|*.wav",
                 Title = "Save decompressed audio (16-bit PCM)",
-                FileName = Path.GetFileNameWithoutExtension(filePath) + "_decompressed.wav",
+                FileName = "DecompressedAudio.wav",
                 DefaultExt = "wav"
             };
             if (sfd.ShowDialog() != DialogResult.OK) return;
@@ -744,15 +688,19 @@ namespace MultimediaFinalProject
             try
             {
                 SaveDecompressedAs16Bit(decompressed, sampleRate, sfd.FileName);
-                MessageBox.Show("Decompressed file saved: " + sfd.FileName, "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Decompressed file saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Failed to save decompressed file: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-
-
         }
+
+        private void SaveCompressedBytes(byte[] data, string fileName)
+        {
+            System.IO.File.WriteAllBytes(fileName, data);
+        }
+
         private async void btnReset_Click(object sender, EventArgs e)
         {
             if (cmbAlgorithm.Items.Count > 0)
@@ -802,10 +750,10 @@ namespace MultimediaFinalProject
 
             using var sfd = new SaveFileDialog
             {
-                Filter = "WAV Files|*.wav",
+                Filter = "Compressed Files|*.bin",
                 Title = "Save compressed audio as",
-                FileName = "CompressedAudio.wav",
-                DefaultExt = "wav"
+                FileName = "CompressedAudio.bin",
+                DefaultExt = "bin"
             };
 
             if (sfd.ShowDialog() == DialogResult.OK)
@@ -814,7 +762,7 @@ namespace MultimediaFinalProject
                 {
                     if (isCompressedAsBytes && compressedData is byte[] byteData)
                     {
-                        System.IO.File.WriteAllBytes(sfd.FileName, byteData);
+                        SaveCompressedBytes(byteData, sfd.FileName);
                         MessageBox.Show("Compressed file saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     else if (compressedData is float[] floatData)
