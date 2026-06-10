@@ -4,7 +4,6 @@ namespace MultimediaFinalProject
 {
     public class AudioCompressor
     {
-        // 1. Nonlinear Quantization -  —Ã⁄ byte[] (8-bit √Ê 16-bit)
         public byte[] ApplyNonlinearQuantization(float[] samples, int mu = 255)
         {
             int bitsPerSample = (mu <= 256) ? 8 : 16;
@@ -13,10 +12,8 @@ namespace MultimediaFinalProject
 
             for (int i = 0; i < samples.Length; i++)
             {
-                //  ÿ»Ìﬁ mu-law
                 float compressed = (float)(Math.Sign(samples[i]) * (Math.Log(1 + mu * Math.Abs(samples[i])) / Math.Log(1 + mu)));
 
-                //  ÕÊÌ· „‰ [-1, 1] ≈·Ï [0, 255] √Ê [0, 65535]
                 if (bitsPerSample == 8)
                 {
                     byte quantized = (byte)((compressed + 1) / 2 * 255);
@@ -32,7 +29,6 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // Inverse Nonlinear Quantization
         public float[] DecompressNonlinearQuantization(byte[] compressed, int mu = 255, int totalSamples = 0)
         {
             int bitsPerSample = (mu <= 256) ? 8 : 16;
@@ -60,7 +56,6 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // 2. DPCM „⁄ Quantization -  —Ã⁄ byte[]
         public byte[] ApplyDPCM(float[] samples, int bitsPerSample = 8)
         {
             int maxValue = (1 << bitsPerSample) - 1;
@@ -69,7 +64,6 @@ namespace MultimediaFinalProject
             float minDiff = float.MaxValue;
             float maxDiff = float.MinValue;
 
-            // √Ê·«: Õ”«» «·›—Êﬁ« 
             float[] diffs = new float[samples.Length];
             for (int i = 0; i < samples.Length; i++)
             {
@@ -79,7 +73,6 @@ namespace MultimediaFinalProject
                 if (diffs[i] > maxDiff) maxDiff = diffs[i];
             }
 
-            // Quantization «·›—Êﬁ« 
             float range = maxDiff - minDiff;
             for (int i = 0; i < samples.Length; i++)
             {
@@ -107,7 +100,6 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // 3. Predictive Differential Coding „⁄ Quantization -  —Ã⁄ byte[]
         public byte[] ApplyPredictiveCoding(float[] samples, float predictorGain = 0.9f, int bitsPerSample = 8)
         {
             int maxValue = (1 << bitsPerSample) - 1;
@@ -116,7 +108,6 @@ namespace MultimediaFinalProject
             float minError = float.MaxValue;
             float maxError = float.MinValue;
 
-            // Õ›Ÿ √Ê· ⁄Ì‰… »‘ﬂ· „‰›’· (‰Õ «ÃÂ« ··›ﬂ)
             float[] errors = new float[samples.Length];
             errors[0] = samples[0];
 
@@ -129,7 +120,6 @@ namespace MultimediaFinalProject
                 if (errors[i] > maxError) maxError = errors[i];
             }
 
-            // Quantization «·√Œÿ«¡
             float range = maxError - minError;
             for (int i = 0; i < samples.Length; i++)
             {
@@ -159,7 +149,6 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // 4. Delta Modulation -  —Ã⁄ byte[] (1 bit per sample, packed)
         public byte[] ApplyDeltaModulation(float[] samples, float step = 0.05f)
         {
             int[] bits = ApplyDeltaModulationBits(samples, step);
@@ -196,7 +185,6 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // 5. Adaptive Delta Modulation -  —Ã⁄ byte[] (1 bit per sample, packed)
         public byte[] ApplyAdaptiveDeltaModulation(float[] samples)
         {
             int[] bits = ApplyAdaptiveDeltaModulationBits(samples);
@@ -239,9 +227,7 @@ namespace MultimediaFinalProject
             return output;
         }
 
-        // ========== œÊ«· „”«⁄œ… ==========
 
-        // Pack 8 bits into 1 byte
         private byte[] PackBitsToBytes(int[] bits)
         {
             int byteCount = (bits.Length + 7) / 8;
@@ -255,8 +241,6 @@ namespace MultimediaFinalProject
             }
             return packed;
         }
-
-        // Unpack bytes to bits
         private int[] UnpackBytesToBits(byte[] packed, int totalBits)
         {
             int[] bits = new int[totalBits];

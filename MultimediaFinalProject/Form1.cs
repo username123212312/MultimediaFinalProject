@@ -439,12 +439,7 @@ namespace MultimediaFinalProject
             var compressor = new AudioCompressor();
 
             // stateful variables for algorithms that need continuity across blocks
-            float dpcmPrev = 0f;
-            float predPrev = 0f;
             const float predGain = 0.9f;
-            float dmCurrent = 0f;
-            float admCurrent = 0f;
-            float admStep = 0.05f;
             float dmStep = 0.05f;
 
             List<byte> allBytes = new List<byte>();
