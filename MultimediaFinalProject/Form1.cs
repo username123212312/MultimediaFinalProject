@@ -96,22 +96,38 @@ namespace MultimediaFinalProject
                 using var reader = new AudioFileReader(filePath);
 
                 int targetRate = (int)nudSampleRate.Value;
+                // fall back to source sample rate if UI value is invalid
+                if (targetRate <= 0)
+                    targetRate = reader.WaveFormat.SampleRate;
 
                 var resampler = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(reader, targetRate);
 
-                audioSamples = new float[(int)(resampler.WaveFormat.SampleRate * reader.TotalTime.TotalSeconds)];
-                resampler.Read(audioSamples, 0, audioSamples.Length);
+                // Read until provider returns 0 (don't rely on TotalTime)
+                var sampleList = new List<float>();
+                float[] buffer = new float[8192];
+                int read;
+                while ((read = resampler.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (read == buffer.Length)
+                        sampleList.AddRange(buffer);
+                    else
+                    {
+                        for (int i = 0; i < read; i++)
+                            sampleList.Add(buffer[i]);
+                    }
+                }
 
-                audioSampleRate = targetRate;
+                audioSamples = sampleList.ToArray();
+                audioSampleRate = resampler.WaveFormat.SampleRate;
 
-                btnCompress.Enabled = true;
+                btnCompress.Enabled = (audioSamples != null && audioSamples.Length > 0);
 
                 // initialize playback & plot
                 LoadAndPlay(filePath, autoPlay: true);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error loading audio: " + ex.Message);
+                MessageBox.Show("Error loading audio: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             DisplayAudioInfo(filePath);
